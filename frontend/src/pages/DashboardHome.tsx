@@ -13,7 +13,6 @@ export default function DashboardHome({ searchTerm = '' }: { searchTerm?: string
   const [stats, setStats] = useState<StatItem[]>([]);
 
   useEffect(() => {
-    // LocalStorage'dan kayıtlı müşterileri oku
     const savedCustomers = localStorage.getItem('app_customers');
     const customers = savedCustomers ? JSON.parse(savedCustomers) : [];
 
@@ -21,26 +20,38 @@ export default function DashboardHome({ searchTerm = '' }: { searchTerm?: string
     let activeCount = 0;
 
     customers.forEach((c: any) => {
-      if (c.spent) {
-        // Sadece rakamları al (Örn: "€10.950" -> 10950)
-        const digitsOnly = String(c.spent).replace(/[^0-9]/g, '');
-        const val = parseInt(digitsOnly, 10);
-        if (!isNaN(val)) {
-          totalRevenue += val;
-        }
-      }
+      const statusText = String(c.status || '').toLowerCase();
+      
+      // KESİN KURAL: Sadece "Tamamlandı", "Voltooid", "Aktif" veya "Actief" olanlar gelire dahil edilecek.
+      // "Bekliyor" veya "In afwachting" veya "Pasif" olanlar kesinlikle hesaba KATILMAYACAK.
+      const isConfirmedActive = 
+        statusText.includes('tamamlandı') || 
+        statusText.includes('voltooid') || 
+        statusText.includes('aktif') || 
+        statusText.includes('actief');
 
-      if (c.status && (c.status.includes('Aktif') || c.status.includes('Actief'))) {
+      const matchesSearch = searchTerm 
+        ? (c.name && c.name.toLowerCase().includes(searchTerm.toLowerCase())) 
+        : true;
+
+      if (isConfirmedActive) {
         activeCount += 1;
+
+        if (matchesSearch && c.spent) {
+          const rawDigits = String(c.spent).replace(/[^0-9]/g, '');
+          const val = parseInt(rawDigits, 10);
+          if (!isNaN(val)) {
+            totalRevenue += val;
+          }
+        }
       }
     });
 
-    // Binlik ayraçlı formatlama (Örn: 29200 -> "29.200")
-    const formattedRevenue = totalRevenue.toLocaleString('de-DE');
+    const formattedRevenue = new Intl.NumberFormat('de-DE').format(totalRevenue);
 
     setStats([
       {
-        title: 'Toplam Gelir / Totale Omzet',
+        title: searchTerm ? `Gelir (${searchTerm})` : 'Toplam Gelir (Onaylanan)',
         value: `€${formattedRevenue}`,
         change: '+12.5%',
         isPositive: true,
@@ -58,7 +69,7 @@ export default function DashboardHome({ searchTerm = '' }: { searchTerm?: string
         isPositive: true,
       },
     ]);
-  }, []);
+  }, [searchTerm]);
 
   return (
     <div className="space-y-6">
