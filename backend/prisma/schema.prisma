@@ -1,7 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// Dit is het Prisma-schema van het B2B SaaS-dashboard.
+// De applicatie gebruikt PostgreSQL als database.
 
 generator client {
   provider = "prisma-client"
@@ -10,4 +8,127 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+// Slaat de gegevens van klanten op.
+// Klanten worden niet definitief verwijderd, maar gearchiveerd.
+model Customer {
+  id            Int                @id @default(autoincrement())
+  name          String
+  email         String             @unique
+  company       String?
+  status        CustomerStatus     @default(ACTIVE)
+  isArchived    Boolean            @default(false)
+  archivedAt    DateTime?
+  transactions  Transaction[]
+  subscriptions Subscription[]
+  activities    CustomerActivity[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([status])
+  @@index([isArchived])
+  @@index([createdAt])
+}
+
+// Slaat financiële transacties van klanten op.
+// Een verkoop verhoogt het openstaande saldo.
+// Een betaling verlaagt het openstaande saldo.
+model Transaction {
+  id              Int                @id @default(autoincrement())
+  customerId      Int
+  type            TransactionType    @default(SALE)
+  amount          Decimal            @db.Decimal(12, 2)
+  currency        String             @default("EUR")
+  status          TransactionStatus  @default(PENDING)
+  description     String?
+  transactionDate DateTime           @default(now())
+  customer        Customer           @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  activities      CustomerActivity[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([customerId])
+  @@index([type])
+  @@index([status])
+  @@index([transactionDate])
+  @@index([createdAt])
+}
+
+// Slaat abonnementen van klanten op.
+// Een abonnement blijft bestaan wanneer een klant wordt gearchiveerd.
+model Subscription {
+  id         Int                @id @default(autoincrement())
+  customerId Int
+  planName   String
+  amount     Decimal            @db.Decimal(12, 2)
+  status     SubscriptionStatus @default(ACTIVE)
+  startsAt   DateTime           @default(now())
+  endsAt     DateTime?
+  customer   Customer           @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Houdt belangrijke wijzigingen en gebeurtenissen per klant bij.
+// Hiermee kan de volledige klantgeschiedenis in één tijdlijn worden getoond.
+model CustomerActivity {
+  id            Int                  @id @default(autoincrement())
+  customerId    Int
+  transactionId Int?
+  type          CustomerActivityType
+  title         String
+  description   String?
+  metadata      Json?
+  customer      Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  transaction   Transaction?         @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  createdAt     DateTime             @default(now())
+
+  @@index([customerId])
+  @@index([transactionId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// Beschikbare statussen van een klant.
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+// Bepaalt of een transactie een verkoop of een betaling is.
+enum TransactionType {
+  SALE
+  PAYMENT
+}
+
+// Beschikbare statussen van een transactie.
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+// Beschikbare statussen van een abonnement.
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  PAUSED
+}
+
+// Soorten gebeurtenissen die in de klantgeschiedenis worden opgeslagen.
+enum CustomerActivityType {
+  CUSTOMER_CREATED
+  CUSTOMER_UPDATED
+  CUSTOMER_ARCHIVED
+  CUSTOMER_RESTORED
+  TRANSACTION_CREATED
+  TRANSACTION_UPDATED
 }

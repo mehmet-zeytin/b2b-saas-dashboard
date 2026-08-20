@@ -1,0 +1,37 @@
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.stat-card {
+  padding: 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.stat-card__title {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.stat-card__value {
+  margin: 0 0 8px;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.stat-card__change {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.stat-card__change--positive {
+  color: #15803d;
+}
+
+.stat-card__change--negative {
+  color: #b91c1c;
+}

@@ -1,1 +1,12 @@
 @import "tailwindcss";
+
+/* Global stiller buraya */
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+}

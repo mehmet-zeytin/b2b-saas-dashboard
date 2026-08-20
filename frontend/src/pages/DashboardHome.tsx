@@ -1,104 +1,90 @@
-import { useState, useEffect } from 'react';
-import RevenueChart from '../components/RevenueChart';
-import TransactionsTable from '../components/TransactionsTable';
+import { useEffect, useState } from "react";
+import StatCard from "../components/dashboard/StatCard";
+import TransactionsTable from "../components/transactions/TransactionsTable";
+import { getDashboardStats } from "../services/stats.service";
+import type { DashboardStat } from "../types/stats.types";
+import AnalysisChart from "../components/dashboard/AnalysisChart";
 
-interface StatItem {
-  title: string;
-  value: string;
-  change: string;
-  isPositive: boolean;
-}
+export default function DashboardHome() {
+  const [stats, setStats] = useState<DashboardStat[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-export default function DashboardHome({ searchTerm = '' }: { searchTerm?: string }) {
-  const [stats, setStats] = useState<StatItem[]>([]);
+  async function loadStats(): Promise<void> {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const data = await getDashboardStats();
+
+      setStats(data);
+    } catch (loadError) {
+      console.error(
+        "Fout bij het laden van dashboardstatistieken:",
+        loadError,
+      );
+
+      setError(
+        "De dashboardstatistieken konden niet worden geladen.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   useEffect(() => {
-    const savedCustomers = localStorage.getItem('app_customers');
-    const customers = savedCustomers ? JSON.parse(savedCustomers) : [];
-
-    let totalRevenue = 0;
-    let activeCount = 0;
-
-    customers.forEach((c: any) => {
-      const statusText = String(c.status || '').toLowerCase();
-      
-      // KESİN KURAL: Sadece "Tamamlandı", "Voltooid", "Aktif" veya "Actief" olanlar gelire dahil edilecek.
-      // "Bekliyor" veya "In afwachting" veya "Pasif" olanlar kesinlikle hesaba KATILMAYACAK.
-      const isConfirmedActive = 
-        statusText.includes('tamamlandı') || 
-        statusText.includes('voltooid') || 
-        statusText.includes('aktif') || 
-        statusText.includes('actief');
-
-      const matchesSearch = searchTerm 
-        ? (c.name && c.name.toLowerCase().includes(searchTerm.toLowerCase())) 
-        : true;
-
-      if (isConfirmedActive) {
-        activeCount += 1;
-
-        if (matchesSearch && c.spent) {
-          const rawDigits = String(c.spent).replace(/[^0-9]/g, '');
-          const val = parseInt(rawDigits, 10);
-          if (!isNaN(val)) {
-            totalRevenue += val;
-          }
-        }
-      }
-    });
-
-    const formattedRevenue = new Intl.NumberFormat('de-DE').format(totalRevenue);
-
-    setStats([
-      {
-        title: searchTerm ? `Gelir (${searchTerm})` : 'Toplam Gelir (Onaylanan)',
-        value: `€${formattedRevenue}`,
-        change: '+12.5%',
-        isPositive: true,
-      },
-      {
-        title: 'Aktif Müşteriler / Actieve Klanten',
-        value: activeCount.toString(),
-        change: '+4.1%',
-        isPositive: true,
-      },
-      {
-        title: 'Toplam Müşteri / Totaal Klanten',
-        value: customers.length.toString(),
-        change: '+8.2%',
-        isPositive: true,
-      },
-    ]);
-  }, [searchTerm]);
+    void loadStats();
+  }, []);
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-slate-800">
-        Genel Bakış / Overzicht
-      </h1>
+    <div className="space-y-8">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">
+            Overzicht
+          </h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {stats.map((stat: StatItem, index: number) => {
-          const badgeStyle = stat.isPositive 
-            ? "bg-emerald-100 text-emerald-700" 
-            : "bg-rose-100 text-rose-700";
+          <p className="mt-1 text-sm text-slate-500">
+            Bekijk de actuele bedrijfsgegevens, verkopen en betalingen.
+          </p>
+        </div>
 
-          return (
-            <div key={index} className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs">
-              <h3 className="text-sm font-medium text-slate-500">{stat.title}</h3>
-              <div className="flex items-baseline justify-between mt-2">
-                <span className="text-2xl font-bold text-slate-900">{stat.value}</span>
-                <span className={"text-xs font-semibold px-2 py-0.5 rounded-full " + badgeStyle}>
-                  {stat.change}
-                </span>
-              </div>
-            </div>
-          );
-        })}
+        <button
+          type="button"
+          onClick={() => void loadStats()}
+          disabled={isLoading}
+          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Vernieuwen
+        </button>
       </div>
 
-      <RevenueChart searchTerm={searchTerm} />
-      <TransactionsTable searchTerm={searchTerm} />
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      {isLoading && stats.length === 0 ? (
+        <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
+          Dashboard wordt geladen...
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {stats.map((stat) => (
+            <StatCard
+              key={stat.title}
+              stat={stat}
+            />
+          ))}
+        </div>
+      )}
+
+      <div className="w-full">       
+        <AnalysisChart />
+      </div>
+
+      <TransactionsTable />
     </div>
   );
 }
